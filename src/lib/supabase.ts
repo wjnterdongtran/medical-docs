@@ -21,7 +21,7 @@ function getSupabaseConfig(): { url: string; anonKey: string } {
 }
 
 export function getSupabaseClient(): SupabaseClient | null {
-  // Only create the client in browser environment with valid credentials
+  // Only create the client in browser environment
   if (typeof window === 'undefined') {
     return null;
   }
@@ -30,7 +30,7 @@ export function getSupabaseClient(): SupabaseClient | null {
 
   if (!url || !anonKey) {
     console.warn(
-      'Supabase credentials not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.'
+      'Supabase credentials not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_PUBLISHABLE_KEY environment variables.'
     );
     return null;
   }

@@ -27,10 +27,10 @@ const config: Config = {
 
   onBrokenLinks: 'throw',
 
-  // Custom fields for Supabase configuration
+  // Custom fields for Supabase configuration (accessed via useDocusaurusContext)
   customFields: {
-    supabaseUrl: process.env.SUPABASE_URL || '',
-    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+    supabaseUrl: process.env.REACT_APP_SUPABASE_URL || '',
+    supabaseAnonKey: process.env.REACT_APP_SUPABASE_PUBLISHABLE_KEY || '',
   },
 
   // Even if you don't use internationalization, you can use this field to set
