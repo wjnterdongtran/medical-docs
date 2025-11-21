@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import siteConfig from '@generated/docusaurus.config';
 
 // Create a lazy-initialized Supabase client to avoid errors during SSR/build
 let _supabase: SupabaseClient | null = null;
@@ -10,9 +11,7 @@ function getSupabaseConfig(): { url: string; anonKey: string } {
   }
 
   // Access Docusaurus config from window (injected at runtime)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const docusaurusConfig = (window as any).__DOCUSAURUS__;
-  const customFields = docusaurusConfig?.siteConfig?.customFields || {};
+  const customFields = siteConfig?.customFields || {};
 
   return {
     url: (customFields.supabaseUrl as string) || '',
@@ -59,12 +58,14 @@ export const supabase = {
     },
     signInWithPassword: async (credentials: { email: string; password: string }) => {
       const client = getSupabaseClient();
-      if (!client) return { data: { user: null, session: null }, error: new Error('Supabase not configured') };
+      if (!client)
+        return { data: { user: null, session: null }, error: new Error('Supabase not configured') };
       return client.auth.signInWithPassword(credentials);
     },
     signUp: async (credentials: { email: string; password: string }) => {
       const client = getSupabaseClient();
-      if (!client) return { data: { user: null, session: null }, error: new Error('Supabase not configured') };
+      if (!client)
+        return { data: { user: null, session: null }, error: new Error('Supabase not configured') };
       return client.auth.signUp(credentials);
     },
     signOut: async () => {
