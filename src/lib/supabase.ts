@@ -1,10 +1,24 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
-
 // Create a lazy-initialized Supabase client to avoid errors during SSR/build
 let _supabase: SupabaseClient | null = null;
+
+function getSupabaseConfig(): { url: string; anonKey: string } {
+  // Only access config in browser environment
+  if (typeof window === 'undefined') {
+    return { url: '', anonKey: '' };
+  }
+
+  // Access Docusaurus config from window (injected at runtime)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const docusaurusConfig = (window as any).__DOCUSAURUS__;
+  const customFields = docusaurusConfig?.siteConfig?.customFields || {};
+
+  return {
+    url: (customFields.supabaseUrl as string) || '',
+    anonKey: (customFields.supabaseAnonKey as string) || '',
+  };
+}
 
 export function getSupabaseClient(): SupabaseClient | null {
   // Only create the client in browser environment with valid credentials
@@ -12,15 +26,17 @@ export function getSupabaseClient(): SupabaseClient | null {
     return null;
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  const { url, anonKey } = getSupabaseConfig();
+
+  if (!url || !anonKey) {
     console.warn(
-      'Supabase credentials not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY environment variables.'
+      'Supabase credentials not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.'
     );
     return null;
   }
 
   if (!_supabase) {
-    _supabase = createClient(supabaseUrl, supabaseAnonKey);
+    _supabase = createClient(url, anonKey);
   }
 
   return _supabase;

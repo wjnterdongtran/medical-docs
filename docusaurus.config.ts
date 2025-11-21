@@ -27,6 +27,12 @@ const config: Config = {
 
   onBrokenLinks: 'throw',
 
+  // Custom fields for Supabase configuration
+  customFields: {
+    supabaseUrl: process.env.SUPABASE_URL || '',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+  },
+
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
   // may want to replace "en" with "zh-Hans".
