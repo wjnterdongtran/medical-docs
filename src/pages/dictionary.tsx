@@ -1,10 +1,23 @@
-import React from 'react';
+import { type ReactNode } from 'react';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
-import DictionaryTable from '@site/src/components/DictionaryTable';
+import BrowserOnly from '@docusaurus/BrowserOnly';
 import styles from './dictionary.module.css';
 
-export default function DictionaryPage(): React.JSX.Element {
+// Browser-only content component
+function DictionaryContentLoader(): ReactNode {
+  return (
+    <BrowserOnly fallback={<div className={styles.loading}>Loading dictionary...</div>}>
+      {() => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const DictionaryContent = require('@site/src/components/DictionaryContent').default;
+        return <DictionaryContent />;
+      }}
+    </BrowserOnly>
+  );
+}
+
+export default function DictionaryPage(): ReactNode {
   return (
     <Layout
       title="Clinical Dictionary"
@@ -24,9 +37,7 @@ export default function DictionaryPage(): React.JSX.Element {
             </p>
           </header>
 
-          <section className={styles.content}>
-            <DictionaryTable />
-          </section>
+          <DictionaryContentLoader />
 
           <footer className={styles.footer}>
             <div className={styles.legend}>
