@@ -73,10 +73,15 @@ export const supabase = {
       if (!client) return { error: null };
       return client.auth.signOut();
     },
-    resetPasswordForEmail: async (email: string) => {
+    resetPasswordForEmail: async (email: string, options?: { redirectTo?: string }) => {
       const client = getSupabaseClient();
       if (!client) return { data: {}, error: new Error('Supabase not configured') };
-      return client.auth.resetPasswordForEmail(email);
+      return client.auth.resetPasswordForEmail(email, options);
+    },
+    updateUser: async (attributes: { password?: string; email?: string }) => {
+      const client = getSupabaseClient();
+      if (!client) return { data: { user: null }, error: new Error('Supabase not configured') };
+      return client.auth.updateUser(attributes);
     },
   },
 };

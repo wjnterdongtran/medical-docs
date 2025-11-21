@@ -5,6 +5,11 @@ node_modules
 build
 .docusaurus
 
+# TypeScript compiled files in src
+src/**/*.js
+docusaurus.config.js
+sidebars.js
+
 # Misc
 .DS_Store
 *.log
