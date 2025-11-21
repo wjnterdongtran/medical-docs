@@ -1,20 +1,91 @@
-import { useState, type ReactNode } from 'react';
-import DictionaryTable from '@site/src/components/DictionaryTable';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import DictionaryTable, {
+  type TableFilters,
+  type PaginationInfo,
+} from '@site/src/components/DictionaryTable';
 import TermModal, { type TermFormData } from '@site/src/components/TermModal';
 import DeleteConfirmModal from '@site/src/components/DeleteConfirmModal';
 import UserMenu from '@site/src/components/UserMenu';
 import ProtectedRoute from '@site/src/components/ProtectedRoute';
 import { useAuth } from '@site/src/contexts/AuthContext';
-import { useDictionary } from '@site/src/hooks/useDictionary';
+import {
+  useMedicalTermsQuery,
+  useCreateTermMutation,
+  useUpdateTermMutation,
+  useDeleteTermMutation,
+} from '@site/src/hooks/useMedicalTermsQuery';
 import type { MedicalTerm } from '@site/src/data/medicalTerms';
 import styles from './styles.module.css';
 
+// Debounce hook for search optimization
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+const DEFAULT_PAGE_SIZE = 10;
+
 function DictionaryContentInner(): ReactNode {
   const { user } = useAuth();
-  const { terms, addTerm, updateTerm, deleteTerm, refreshTerms, isLoaded, isLoading, error } = useDictionary({
-    userEmail: user?.email,
-    username: user?.username,
+
+  // Filter state (controlled by table, used for API calls)
+  const [filters, setFilters] = useState<TableFilters>({
+    searchQuery: '',
+    selectedCategory: 'All',
+    selectedCodeSystem: 'All',
+    sortField: 'term',
+    sortDirection: 'asc',
   });
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+
+  // Debounce search query for backend calls (300ms delay)
+  const debouncedSearch = useDebounce(filters.searchQuery, 300);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [
+    debouncedSearch,
+    filters.selectedCategory,
+    filters.selectedCodeSystem,
+    filters.sortField,
+    filters.sortDirection,
+  ]);
+
+  // React Query hooks
+  const {
+    data: queryData,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useMedicalTermsQuery({
+    page,
+    pageSize,
+    search: debouncedSearch,
+    category: filters.selectedCategory,
+    codeSystem: filters.selectedCodeSystem,
+    sortField: filters.sortField,
+    sortDirection: filters.sortDirection,
+  });
+
+  const createMutation = useCreateTermMutation();
+  const updateMutation = useUpdateTermMutation();
+  const deleteMutation = useDeleteTermMutation();
 
   // Modal states
   const [isTermModalOpen, setIsTermModalOpen] = useState(false);
@@ -49,22 +120,54 @@ function DictionaryContentInner(): ReactNode {
       codeSystem: formData.codeSystem || undefined,
     };
 
+    const auditInfo = user
+      ? {
+          email: user.email,
+          username: user.username || user.email.split('@')[0],
+          timestamp: new Date().toISOString(),
+        }
+      : undefined;
+
     if (modalMode === 'add') {
-      await addTerm(termData);
+      await createMutation.mutateAsync({ termData, auditInfo });
     } else if (selectedTerm) {
-      await updateTerm(selectedTerm.id, termData);
+      await updateMutation.mutateAsync({ id: selectedTerm.id, updates: termData, auditInfo });
     }
   };
 
   const handleDeleteConfirm = async () => {
     if (selectedTerm) {
-      await deleteTerm(selectedTerm.id);
+      await deleteMutation.mutateAsync(selectedTerm.id);
     }
   };
 
-  if (!isLoaded) {
-    return <div className={styles.loading}>Loading dictionary...</div>;
-  }
+  // Handle filter changes from table
+  const handleFiltersChange = useCallback((newFilters: Partial<TableFilters>) => {
+    setFilters((prev) => ({ ...prev, ...newFilters }));
+  }, []);
+
+  // Handle pagination
+  const handlePageChange = useCallback((newPage: number) => {
+    setPage(newPage);
+  }, []);
+
+  const handlePageSizeChange = useCallback((newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1); // Reset to first page when changing page size
+  }, []);
+
+  // Prepare data for table
+  const terms = queryData?.data ?? [];
+  const pagination: PaginationInfo = {
+    page: queryData?.page ?? page,
+    pageSize: queryData?.pageSize ?? pageSize,
+    totalCount: queryData?.totalCount ?? 0,
+    totalPages: queryData?.totalPages ?? 0,
+  };
+
+  // Check if any mutation is pending
+  const isMutating =
+    createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   return (
     <>
@@ -72,21 +175,31 @@ function DictionaryContentInner(): ReactNode {
         <UserMenu />
 
         <div className={styles.demoNotice}>
-          <span className={styles.demoBadge}>Supabase</span>
-          <span className={styles.demoText}>Changes are synced with the database.</span>
-          <button className={styles.resetButton} onClick={refreshTerms} disabled={isLoading}>
-            {isLoading ? 'Loading...' : 'Refresh'}
+          <span className={styles.demoBadge}>Supabase + React Query</span>
+          <span className={styles.demoText}>
+            Server-side filtering & pagination with automatic caching.
+          </span>
+          <button
+            className={styles.resetButton}
+            onClick={() => refetch()}
+            disabled={isLoading || isFetching}
+          >
+            {isLoading || isFetching ? 'Loading...' : 'Refresh'}
           </button>
         </div>
 
-        {error && (
-          <div className={styles.errorNotice}>
-            Error: {error}
-          </div>
-        )}
+        {error && <div className={styles.errorNotice}>Error: {error.message}</div>}
+
+        {isMutating && <div className={styles.mutatingNotice}>Saving changes...</div>}
 
         <DictionaryTable
           terms={terms}
+          filters={filters}
+          pagination={pagination}
+          isLoading={isLoading || isFetching}
+          onFiltersChange={handleFiltersChange}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
           onAdd={handleAddClick}
           onEdit={handleEditClick}
           onDelete={handleDeleteClick}
