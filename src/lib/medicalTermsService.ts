@@ -81,7 +81,97 @@ export interface MedicalTermsServiceResult<T> {
   error: Error | null;
 }
 
+// Pagination types
+export interface PaginationParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+  category?: string;
+  codeSystem?: string;
+  sortField?: 'term' | 'category' | 'codeSystem';
+  sortDirection?: 'asc' | 'desc';
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export const medicalTermsService = {
+  // Fetch paginated terms with backend filtering
+  async getPaginated(
+    params: PaginationParams
+  ): Promise<MedicalTermsServiceResult<PaginatedResult<MedicalTerm>>> {
+    const client = getSupabaseClient();
+    if (!client) {
+      return { data: null, error: new Error('Supabase client not available') };
+    }
+
+    const {
+      page,
+      pageSize,
+      search,
+      category,
+      codeSystem,
+      sortField = 'term',
+      sortDirection = 'asc',
+    } = params;
+
+    // Calculate offset for pagination
+    const offset = (page - 1) * pageSize;
+
+    // Build the query
+    let query = client.from('medical_terms').select('*', { count: 'exact' });
+
+    // Apply search filter (searches term, definition, and code)
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      query = query.or(
+        `term.ilike.${searchTerm},definition.ilike.${searchTerm},code.ilike.${searchTerm}`
+      );
+    }
+
+    // Apply category filter
+    if (category && category !== 'All') {
+      query = query.eq('category', category);
+    }
+
+    // Apply code system filter
+    if (codeSystem && codeSystem !== 'All') {
+      query = query.eq('code_system', codeSystem);
+    }
+
+    // Apply sorting - map sortField to database column
+    const sortColumn = sortField === 'codeSystem' ? 'code_system' : sortField;
+    query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+
+    // Apply pagination
+    query = query.range(offset, offset + pageSize - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      return { data: null, error: new Error(error.message) };
+    }
+
+    const totalCount = count || 0;
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return {
+      data: {
+        data: (data || []).map(rowToMedicalTerm),
+        totalCount,
+        page,
+        pageSize,
+        totalPages,
+      },
+      error: null,
+    };
+  },
+
   // Fetch all terms
   async getAll(): Promise<MedicalTermsServiceResult<MedicalTerm[]>> {
     const client = getSupabaseClient();

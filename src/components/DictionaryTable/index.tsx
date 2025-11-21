@@ -1,8 +1,9 @@
-import { useState, useMemo, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { MedicalTerm, AuditInfo, categories, codeSystems } from '@site/src/data/medicalTerms';
 import styles from './styles.module.css';
 
 type SortField = 'term' | 'category' | 'codeSystem';
+type SortDirection = 'asc' | 'desc';
 
 function formatAuditInfo(audit: AuditInfo | undefined): string {
   if (!audit) return '-';
@@ -18,78 +19,57 @@ function formatAuditInfo(audit: AuditInfo | undefined): string {
   const displayName = audit.username || audit.email.split('@')[0];
   return `${displayName} (${formatted})`;
 }
-type SortDirection = 'asc' | 'desc';
+
+export interface TableFilters {
+  searchQuery: string;
+  selectedCategory: string;
+  selectedCodeSystem: string;
+  sortField: SortField;
+  sortDirection: SortDirection;
+}
+
+export interface PaginationInfo {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
 
 interface DictionaryTableProps {
   terms: MedicalTerm[];
+  filters: TableFilters;
+  pagination: PaginationInfo;
+  isLoading?: boolean;
+  onFiltersChange: (filters: Partial<TableFilters>) => void;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
   onEdit?: (term: MedicalTerm) => void;
   onDelete?: (term: MedicalTerm) => void;
   onAdd?: () => void;
 }
 
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
+
 export default function DictionaryTable({
   terms,
+  filters,
+  pagination,
+  isLoading = false,
+  onFiltersChange,
+  onPageChange,
+  onPageSizeChange,
   onEdit,
   onDelete,
   onAdd,
 }: DictionaryTableProps): ReactNode {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [selectedCodeSystem, setSelectedCodeSystem] = useState<string>('All');
-  const [sortField, setSortField] = useState<SortField>('term');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-
-  const filteredAndSortedTerms = useMemo(() => {
-    const filtered = terms.filter((term) => {
-      const matchesSearch =
-        searchQuery === '' ||
-        term.term.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        term.definition.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        term.code?.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesCategory = selectedCategory === 'All' || term.category === selectedCategory;
-
-      const matchesCodeSystem =
-        selectedCodeSystem === 'All' || term.codeSystem === selectedCodeSystem;
-
-      return matchesSearch && matchesCategory && matchesCodeSystem;
-    });
-
-    filtered.sort((a, b) => {
-      let aValue: string;
-      let bValue: string;
-
-      switch (sortField) {
-        case 'term':
-          aValue = a.term;
-          bValue = b.term;
-          break;
-        case 'category':
-          aValue = a.category;
-          bValue = b.category;
-          break;
-        case 'codeSystem':
-          aValue = a.codeSystem || '';
-          bValue = b.codeSystem || '';
-          break;
-        default:
-          aValue = a.term;
-          bValue = b.term;
-      }
-
-      const comparison = aValue.localeCompare(bValue);
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
-
-    return filtered;
-  }, [terms, searchQuery, selectedCategory, selectedCodeSystem, sortField, sortDirection]);
+  const { searchQuery, selectedCategory, selectedCodeSystem, sortField, sortDirection } = filters;
+  const { page, pageSize, totalCount, totalPages } = pagination;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      onFiltersChange({ sortDirection: sortDirection === 'asc' ? 'desc' : 'asc' });
     } else {
-      setSortField(field);
-      setSortDirection('asc');
+      onFiltersChange({ sortField: field, sortDirection: 'asc' });
     }
   };
 
@@ -100,6 +80,10 @@ export default function DictionaryTable({
 
   const hasActions = onEdit || onDelete;
 
+  // Calculate showing range
+  const startItem = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endItem = Math.min(page * pageSize, totalCount);
+
   return (
     <div className={styles.dictionaryContainer}>
       {/* Search and Filters */}
@@ -109,14 +93,14 @@ export default function DictionaryTable({
             type="text"
             placeholder="Search terms, definitions, or codes..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => onFiltersChange({ searchQuery: e.target.value })}
             className={styles.searchInput}
             aria-label="Search medical terms"
           />
           {searchQuery && (
             <button
               className={styles.clearButton}
-              onClick={() => setSearchQuery('')}
+              onClick={() => onFiltersChange({ searchQuery: '' })}
               aria-label="Clear search"
             >
               ×
@@ -127,7 +111,7 @@ export default function DictionaryTable({
         <div className={styles.filters}>
           <select
             value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+            onChange={(e) => onFiltersChange({ selectedCategory: e.target.value })}
             className={styles.filterSelect}
             aria-label="Filter by category"
           >
@@ -140,7 +124,7 @@ export default function DictionaryTable({
 
           <select
             value={selectedCodeSystem}
-            onChange={(e) => setSelectedCodeSystem(e.target.value)}
+            onChange={(e) => onFiltersChange({ selectedCodeSystem: e.target.value })}
             className={styles.filterSelect}
             aria-label="Filter by code system"
           >
@@ -159,14 +143,38 @@ export default function DictionaryTable({
         </div>
       </div>
 
-      {/* Results count */}
-      <div className={styles.resultsCount}>
-        Showing {filteredAndSortedTerms.length} of {terms.length} terms
+      {/* Results count and pagination controls */}
+      <div className={styles.paginationHeader}>
+        <div className={styles.resultsCount}>
+          {isLoading ? (
+            'Loading...'
+          ) : (
+            <>
+              Showing {startItem}-{endItem} of {totalCount} terms
+            </>
+          )}
+        </div>
+        <div className={styles.pageSizeSelector}>
+          <label htmlFor="pageSize">Show:</label>
+          <select
+            id="pageSize"
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            className={styles.pageSizeSelect}
+          >
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+          <span>per page</span>
+        </div>
       </div>
 
       {/* Table */}
       <div className={styles.tableWrapper}>
-        <table className={styles.table}>
+        <table className={`${styles.table} ${isLoading ? styles.tableLoading : ''}`}>
           <thead>
             <tr>
               <th className={styles.sortable} onClick={() => handleSort('term')}>
@@ -185,14 +193,14 @@ export default function DictionaryTable({
             </tr>
           </thead>
           <tbody>
-            {filteredAndSortedTerms.length === 0 ? (
+            {terms.length === 0 ? (
               <tr>
                 <td colSpan={hasActions ? 7 : 6} className={styles.noResults}>
-                  No terms found matching your search criteria.
+                  {isLoading ? 'Loading terms...' : 'No terms found matching your search criteria.'}
                 </td>
               </tr>
             ) : (
-              filteredAndSortedTerms.map((term) => (
+              terms.map((term) => (
                 <tr key={term.id}>
                   <td className={styles.termCell}>
                     <strong>{term.term}</strong>
@@ -272,6 +280,104 @@ export default function DictionaryTable({
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className={styles.pagination}>
+          <button
+            className={styles.paginationButton}
+            onClick={() => onPageChange(1)}
+            disabled={page === 1 || isLoading}
+            aria-label="First page"
+          >
+            ««
+          </button>
+          <button
+            className={styles.paginationButton}
+            onClick={() => onPageChange(page - 1)}
+            disabled={page === 1 || isLoading}
+            aria-label="Previous page"
+          >
+            «
+          </button>
+
+          {/* Page numbers */}
+          <div className={styles.pageNumbers}>
+            {getPageNumbers(page, totalPages).map((pageNum, index) =>
+              pageNum === '...' ? (
+                <span key={`ellipsis-${index}`} className={styles.ellipsis}>
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={pageNum}
+                  className={`${styles.pageButton} ${page === pageNum ? styles.pageButtonActive : ''}`}
+                  onClick={() => onPageChange(pageNum as number)}
+                  disabled={isLoading}
+                  aria-label={`Page ${pageNum}`}
+                  aria-current={page === pageNum ? 'page' : undefined}
+                >
+                  {pageNum}
+                </button>
+              )
+            )}
+          </div>
+
+          <button
+            className={styles.paginationButton}
+            onClick={() => onPageChange(page + 1)}
+            disabled={page === totalPages || isLoading}
+            aria-label="Next page"
+          >
+            »
+          </button>
+          <button
+            className={styles.paginationButton}
+            onClick={() => onPageChange(totalPages)}
+            disabled={page === totalPages || isLoading}
+            aria-label="Last page"
+          >
+            »»
+          </button>
+        </div>
+      )}
     </div>
   );
+}
+
+// Helper function to generate page numbers with ellipsis
+function getPageNumbers(currentPage: number, totalPages: number): (number | string)[] {
+  const pages: (number | string)[] = [];
+  const showEllipsis = totalPages > 7;
+
+  if (!showEllipsis) {
+    // Show all pages if 7 or fewer
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+  } else {
+    // Always show first page
+    pages.push(1);
+
+    if (currentPage > 3) {
+      pages.push('...');
+    }
+
+    // Show pages around current page
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (currentPage < totalPages - 2) {
+      pages.push('...');
+    }
+
+    // Always show last page
+    pages.push(totalPages);
+  }
+
+  return pages;
 }

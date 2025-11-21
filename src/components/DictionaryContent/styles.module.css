@@ -70,3 +70,17 @@
   color: var(--ifm-color-danger);
   font-size: 0.9rem;
 }
+
+/* Mutating Notice (Saving) */
+.mutatingNotice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  padding: 0.5rem 1rem;
+  background: var(--ifm-color-info-contrast-background);
+  border: 1px solid var(--ifm-color-info);
+  border-radius: 8px;
+  color: var(--ifm-color-info-dark);
+  font-size: 0.85rem;
+}
