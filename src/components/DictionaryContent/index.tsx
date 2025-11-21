@@ -2,12 +2,18 @@ import { useState, type ReactNode } from 'react';
 import DictionaryTable from '@site/src/components/DictionaryTable';
 import TermModal, { type TermFormData } from '@site/src/components/TermModal';
 import DeleteConfirmModal from '@site/src/components/DeleteConfirmModal';
+import UserMenu from '@site/src/components/UserMenu';
+import ProtectedRoute from '@site/src/components/ProtectedRoute';
+import { useAuth } from '@site/src/contexts/AuthContext';
 import { useDictionary } from '@site/src/hooks/useDictionary';
 import type { MedicalTerm } from '@site/src/data/medicalTerms';
 import styles from './styles.module.css';
 
-export default function DictionaryContent(): ReactNode {
-  const { terms, addTerm, updateTerm, deleteTerm, resetToDefault, isLoaded } = useDictionary();
+function DictionaryContentInner(): ReactNode {
+  const { user } = useAuth();
+  const { terms, addTerm, updateTerm, deleteTerm, resetToDefault, isLoaded } = useDictionary({
+    userEmail: user?.email,
+  });
 
   // Modal states
   const [isTermModalOpen, setIsTermModalOpen] = useState(false);
@@ -62,6 +68,8 @@ export default function DictionaryContent(): ReactNode {
   return (
     <>
       <section className={styles.content}>
+        <UserMenu />
+
         <div className={styles.demoNotice}>
           <span className={styles.demoBadge}>Demo Mode</span>
           <span className={styles.demoText}>Changes are stored locally in your browser.</span>
@@ -94,5 +102,13 @@ export default function DictionaryContent(): ReactNode {
         termName={selectedTerm?.term || ''}
       />
     </>
+  );
+}
+
+export default function DictionaryContent(): ReactNode {
+  return (
+    <ProtectedRoute>
+      <DictionaryContentInner />
+    </ProtectedRoute>
   );
 }

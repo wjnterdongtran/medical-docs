@@ -1,3 +1,8 @@
+export interface AuditInfo {
+  email: string;
+  timestamp: string;
+}
+
 export interface MedicalTerm {
   id: string;
   term: string;
@@ -5,6 +10,9 @@ export interface MedicalTerm {
   category: 'Diagnosis' | 'Procedure' | 'Laboratory' | 'Medication' | 'Anatomy' | 'Symptom';
   code?: string;
   codeSystem?: 'ICD-10' | 'SNOMED CT' | 'LOINC' | 'CPT' | 'RxNorm' | 'HCPCS';
+  // Audit fields
+  createdBy?: AuditInfo;
+  updatedBy?: AuditInfo;
 }
 
 export const medicalTerms: MedicalTerm[] = [

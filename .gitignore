@@ -8,3 +8,7 @@ build
 # Misc
 .DS_Store
 *.log
+
+# Environment variables
+.env
+.env.local
