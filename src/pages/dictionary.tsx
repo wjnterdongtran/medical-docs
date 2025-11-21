@@ -9,7 +9,6 @@ function DictionaryContentLoader(): ReactNode {
   return (
     <BrowserOnly fallback={<div className={styles.loading}>Loading dictionary...</div>}>
       {() => {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const DictionaryContent = require('@site/src/components/DictionaryContent').default;
         return <DictionaryContent />;
       }}

@@ -168,6 +168,20 @@
   font-family: var(--ifm-font-family-monospace);
 }
 
+.auditCell {
+  font-size: 0.8rem;
+  color: var(--ifm-color-emphasis-700);
+  min-width: 180px;
+  max-width: 250px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.auditCell span {
+  cursor: help;
+}
+
 /* Category Badges */
 .badge {
   display: inline-block;

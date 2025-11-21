@@ -1,8 +1,21 @@
 import { useState, useMemo, type ReactNode } from 'react';
-import { MedicalTerm, categories, codeSystems } from '@site/src/data/medicalTerms';
+import { MedicalTerm, AuditInfo, categories, codeSystems } from '@site/src/data/medicalTerms';
 import styles from './styles.module.css';
 
 type SortField = 'term' | 'category' | 'codeSystem';
+
+function formatAuditInfo(audit: AuditInfo | undefined): string {
+  if (!audit) return '-';
+  const date = new Date(audit.timestamp);
+  const formatted = date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `${audit.email} (${formatted})`;
+}
 type SortDirection = 'asc' | 'desc';
 
 interface DictionaryTableProps {
@@ -165,13 +178,14 @@ export default function DictionaryTable({
                 Code System{getSortIndicator('codeSystem')}
               </th>
               <th>Code</th>
+              <th>Modified By</th>
               {hasActions && <th className={styles.actionsHeader}>Actions</th>}
             </tr>
           </thead>
           <tbody>
             {filteredAndSortedTerms.length === 0 ? (
               <tr>
-                <td colSpan={hasActions ? 6 : 5} className={styles.noResults}>
+                <td colSpan={hasActions ? 7 : 6} className={styles.noResults}>
                   No terms found matching your search criteria.
                 </td>
               </tr>
@@ -189,6 +203,17 @@ export default function DictionaryTable({
                   </td>
                   <td>{term.codeSystem || '-'}</td>
                   <td className={styles.codeCell}>{term.code ? <code>{term.code}</code> : '-'}</td>
+                  <td className={styles.auditCell}>
+                    {term.updatedBy ? (
+                      <span title={`Created by: ${formatAuditInfo(term.createdBy)}`}>
+                        {formatAuditInfo(term.updatedBy)}
+                      </span>
+                    ) : term.createdBy ? (
+                      <span>{formatAuditInfo(term.createdBy)}</span>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
                   {hasActions && (
                     <td className={styles.actionsCell}>
                       {onEdit && (

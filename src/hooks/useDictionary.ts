@@ -1,10 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MedicalTerm, medicalTerms as initialTerms } from '@site/src/data/medicalTerms';
+import { MedicalTerm, AuditInfo, medicalTerms as initialTerms } from '@site/src/data/medicalTerms';
 
 const STORAGE_KEY = 'medical-dictionary-terms';
 
 function generateId(): string {
   return `term-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+function createAuditInfo(email: string): AuditInfo {
+  return {
+    email,
+    timestamp: new Date().toISOString(),
+  };
 }
 
 function loadTermsFromStorage(): MedicalTerm[] {
@@ -38,15 +45,20 @@ function saveTermsToStorage(terms: MedicalTerm[]): void {
 
 export interface UseDictionaryReturn {
   terms: MedicalTerm[];
-  addTerm: (term: Omit<MedicalTerm, 'id'>) => MedicalTerm;
-  updateTerm: (id: string, updates: Partial<Omit<MedicalTerm, 'id'>>) => boolean;
+  addTerm: (term: Omit<MedicalTerm, 'id' | 'createdBy' | 'updatedBy'>) => MedicalTerm;
+  updateTerm: (id: string, updates: Partial<Omit<MedicalTerm, 'id' | 'createdBy' | 'updatedBy'>>) => boolean;
   deleteTerm: (id: string) => boolean;
   getTermById: (id: string) => MedicalTerm | undefined;
   resetToDefault: () => void;
   isLoaded: boolean;
 }
 
-export function useDictionary(): UseDictionaryReturn {
+export interface UseDictionaryOptions {
+  userEmail?: string;
+}
+
+export function useDictionary(options: UseDictionaryOptions = {}): UseDictionaryReturn {
+  const { userEmail } = options;
   const [terms, setTerms] = useState<MedicalTerm[]>(initialTerms);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -64,31 +76,34 @@ export function useDictionary(): UseDictionaryReturn {
     }
   }, [terms, isLoaded]);
 
-  const addTerm = useCallback((termData: Omit<MedicalTerm, 'id'>): MedicalTerm => {
+  const addTerm = useCallback((termData: Omit<MedicalTerm, 'id' | 'createdBy' | 'updatedBy'>): MedicalTerm => {
+    const auditInfo = userEmail ? createAuditInfo(userEmail) : undefined;
     const newTerm: MedicalTerm = {
       ...termData,
       id: generateId(),
+      createdBy: auditInfo,
     };
 
     setTerms((prev) => [...prev, newTerm]);
     return newTerm;
-  }, []);
+  }, [userEmail]);
 
-  const updateTerm = useCallback((id: string, updates: Partial<Omit<MedicalTerm, 'id'>>): boolean => {
+  const updateTerm = useCallback((id: string, updates: Partial<Omit<MedicalTerm, 'id' | 'createdBy' | 'updatedBy'>>): boolean => {
     let found = false;
+    const auditInfo = userEmail ? createAuditInfo(userEmail) : undefined;
 
     setTerms((prev) =>
       prev.map((term) => {
         if (term.id === id) {
           found = true;
-          return { ...term, ...updates };
+          return { ...term, ...updates, updatedBy: auditInfo };
         }
         return term;
       })
     );
 
     return found;
-  }, []);
+  }, [userEmail]);
 
   const deleteTerm = useCallback((id: string): boolean => {
     let found = false;
