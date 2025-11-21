@@ -42,6 +42,23 @@ const config: Config = {
     locales: ['en'],
   },
 
+  plugins: [
+    function sourceMapPlugin() {
+      return {
+        name: 'source-map-plugin',
+        configureWebpack(config, isServer, utils) {
+          // Only enable sourcemaps in development
+          if (process.env.NODE_ENV === 'development') {
+            return {
+              devtool: 'eval-source-map',
+            };
+          }
+          return {};
+        },
+      };
+    },
+  ],
+
   presets: [
     [
       'classic',
