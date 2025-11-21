@@ -16,6 +16,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ error: AuthError | Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | Error | null }>;
+  updatePassword: (newPassword: string) => Promise<{ error: AuthError | Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -131,7 +132,23 @@ export function AuthProvider({ children }: AuthProviderProps): ReactNode {
       };
     }
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    // Get the current URL origin for redirect
+    const redirectTo = typeof window !== 'undefined'
+      ? `${window.location.origin}/reset-password`
+      : undefined;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    return { error };
+  }, []);
+
+  const updatePassword = useCallback(async (newPassword: string) => {
+    if (newPassword.length < 6) {
+      return {
+        error: new Error('Password must be at least 6 characters'),
+      };
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
     return { error };
   }, []);
 
@@ -143,6 +160,7 @@ export function AuthProvider({ children }: AuthProviderProps): ReactNode {
     signUp,
     signOut,
     resetPassword,
+    updatePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
