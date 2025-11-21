@@ -239,6 +239,84 @@
   color: #fbcfe8;
 }
 
+/* Action Buttons */
+.addButton {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: var(--ifm-color-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.addButton:hover {
+  background: var(--ifm-color-primary-dark);
+}
+
+.actionsHeader {
+  width: 100px;
+  text-align: center;
+}
+
+.actionsCell {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.editButton,
+.deleteButton {
+  padding: 0.5rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0.25rem;
+}
+
+.editButton {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.editButton:hover {
+  background: #bfdbfe;
+}
+
+.deleteButton {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.deleteButton:hover {
+  background: #fecaca;
+}
+
+/* Dark mode action buttons */
+[data-theme='dark'] .editButton {
+  background: #172554;
+  color: #bfdbfe;
+}
+
+[data-theme='dark'] .editButton:hover {
+  background: #1e3a8a;
+}
+
+[data-theme='dark'] .deleteButton {
+  background: #450a0a;
+  color: #fecaca;
+}
+
+[data-theme='dark'] .deleteButton:hover {
+  background: #7f1d1d;
+}
+
 /* No Results */
 .noResults {
   text-align: center;
