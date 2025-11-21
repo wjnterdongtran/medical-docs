@@ -11,8 +11,9 @@ import styles from './styles.module.css';
 
 function DictionaryContentInner(): ReactNode {
   const { user } = useAuth();
-  const { terms, addTerm, updateTerm, deleteTerm, resetToDefault, isLoaded } = useDictionary({
+  const { terms, addTerm, updateTerm, deleteTerm, refreshTerms, isLoaded, isLoading, error } = useDictionary({
     userEmail: user?.email,
+    username: user?.username,
   });
 
   // Modal states
@@ -39,7 +40,7 @@ function DictionaryContentInner(): ReactNode {
     setIsDeleteModalOpen(true);
   };
 
-  const handleTermSubmit = (formData: TermFormData) => {
+  const handleTermSubmit = async (formData: TermFormData) => {
     const termData = {
       term: formData.term.trim(),
       definition: formData.definition.trim(),
@@ -49,15 +50,15 @@ function DictionaryContentInner(): ReactNode {
     };
 
     if (modalMode === 'add') {
-      addTerm(termData);
+      await addTerm(termData);
     } else if (selectedTerm) {
-      updateTerm(selectedTerm.id, termData);
+      await updateTerm(selectedTerm.id, termData);
     }
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (selectedTerm) {
-      deleteTerm(selectedTerm.id);
+      await deleteTerm(selectedTerm.id);
     }
   };
 
@@ -71,12 +72,18 @@ function DictionaryContentInner(): ReactNode {
         <UserMenu />
 
         <div className={styles.demoNotice}>
-          <span className={styles.demoBadge}>Demo Mode</span>
-          <span className={styles.demoText}>Changes are stored locally in your browser.</span>
-          <button className={styles.resetButton} onClick={resetToDefault}>
-            Reset to Default
+          <span className={styles.demoBadge}>Supabase</span>
+          <span className={styles.demoText}>Changes are synced with the database.</span>
+          <button className={styles.resetButton} onClick={refreshTerms} disabled={isLoading}>
+            {isLoading ? 'Loading...' : 'Refresh'}
           </button>
         </div>
+
+        {error && (
+          <div className={styles.errorNotice}>
+            Error: {error}
+          </div>
+        )}
 
         <DictionaryTable
           terms={terms}

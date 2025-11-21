@@ -14,7 +14,9 @@ function formatAuditInfo(audit: AuditInfo | undefined): string {
     hour: '2-digit',
     minute: '2-digit',
   });
-  return `${audit.email} (${formatted})`;
+  // Display username instead of email
+  const displayName = audit.username || audit.email.split('@')[0];
+  return `${displayName} (${formatted})`;
 }
 type SortDirection = 'asc' | 'desc';
 

@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
-import { supabase, isEmailAllowed, ALLOWED_EMAIL_DOMAIN } from '@site/src/lib/supabase';
+import { supabase, getSupabaseClient, isEmailAllowed, ALLOWED_EMAIL_DOMAIN } from '@site/src/lib/supabase';
 import type { User, Session, AuthError } from '@supabase/supabase-js';
 
 export interface AuthUser {
   id: string;
   email: string;
+  username: string;
 }
 
 interface AuthContextType {
@@ -19,11 +20,30 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function mapUser(user: User | null): AuthUser | null {
+async function fetchUserProfile(userId: string): Promise<{ username: string } | null> {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  const { data, error } = await client
+    .from('profiles')
+    .select('username')
+    .eq('id', userId)
+    .single();
+
+  if (error || !data) {
+    console.warn('Failed to fetch user profile:', error?.message);
+    return null;
+  }
+
+  return { username: data.username };
+}
+
+function mapUser(user: User | null, username?: string): AuthUser | null {
   if (!user || !user.email) return null;
   return {
     id: user.id,
     email: user.email,
+    username: username || user.email.split('@')[0], // Fallback to email prefix
   };
 }
 
@@ -36,25 +56,36 @@ export function AuthProvider({ children }: AuthProviderProps): ReactNode {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const loadUserWithProfile = useCallback(async (authUser: User | null) => {
+    if (!authUser) {
+      setUser(null);
+      return;
+    }
+
+    // Fetch profile to get username
+    const profile = await fetchUserProfile(authUser.id);
+    setUser(mapUser(authUser, profile?.username));
+  }, []);
+
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
-      setUser(mapUser(session?.user ?? null));
+      await loadUserWithProfile(session?.user ?? null);
       setIsLoading(false);
     });
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
-      setUser(mapUser(session?.user ?? null));
+      await loadUserWithProfile(session?.user ?? null);
       setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [loadUserWithProfile]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     // Validate email domain

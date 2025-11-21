@@ -1,5 +1,6 @@
 export interface AuditInfo {
   email: string;
+  username: string;
   timestamp: string;
 }
 

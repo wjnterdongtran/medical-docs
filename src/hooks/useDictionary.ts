@@ -1,135 +1,173 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MedicalTerm, AuditInfo, medicalTerms as initialTerms } from '@site/src/data/medicalTerms';
+import { medicalTermsService } from '@site/src/lib/medicalTermsService';
+import { getSupabaseClient } from '@site/src/lib/supabase';
 
-const STORAGE_KEY = 'medical-dictionary-terms';
-
-function generateId(): string {
-  return `term-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-function createAuditInfo(email: string): AuditInfo {
+function createAuditInfo(email: string, username: string): AuditInfo {
   return {
     email,
+    username,
     timestamp: new Date().toISOString(),
   };
 }
 
-function loadTermsFromStorage(): MedicalTerm[] {
-  if (typeof window === 'undefined') {
-    return initialTerms;
-  }
-
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch (error) {
-    console.error('Failed to load terms from localStorage:', error);
-  }
-
-  return initialTerms;
-}
-
-function saveTermsToStorage(terms: MedicalTerm[]): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(terms));
-  } catch (error) {
-    console.error('Failed to save terms to localStorage:', error);
-  }
-}
-
 export interface UseDictionaryReturn {
   terms: MedicalTerm[];
-  addTerm: (term: Omit<MedicalTerm, 'id' | 'createdBy' | 'updatedBy'>) => MedicalTerm;
-  updateTerm: (id: string, updates: Partial<Omit<MedicalTerm, 'id' | 'createdBy' | 'updatedBy'>>) => boolean;
-  deleteTerm: (id: string) => boolean;
+  addTerm: (term: Omit<MedicalTerm, 'id' | 'createdBy' | 'updatedBy'>) => Promise<MedicalTerm | null>;
+  updateTerm: (id: string, updates: Partial<Omit<MedicalTerm, 'id' | 'createdBy' | 'updatedBy'>>) => Promise<boolean>;
+  deleteTerm: (id: string) => Promise<boolean>;
   getTermById: (id: string) => MedicalTerm | undefined;
-  resetToDefault: () => void;
+  refreshTerms: () => Promise<void>;
   isLoaded: boolean;
+  isLoading: boolean;
+  error: string | null;
 }
 
 export interface UseDictionaryOptions {
   userEmail?: string;
+  username?: string;
 }
 
 export function useDictionary(options: UseDictionaryOptions = {}): UseDictionaryReturn {
-  const { userEmail } = options;
+  const { userEmail, username } = options;
   const [terms, setTerms] = useState<MedicalTerm[]>(initialTerms);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load from localStorage on mount (client-side only)
-  useEffect(() => {
-    const loadedTerms = loadTermsFromStorage();
-    setTerms(loadedTerms);
-    setIsLoaded(true);
+  // Check if Supabase is available
+  const isSupabaseAvailable = useCallback(() => {
+    return getSupabaseClient() !== null;
   }, []);
 
-  // Save to localStorage whenever terms change (after initial load)
-  useEffect(() => {
-    if (isLoaded) {
-      saveTermsToStorage(terms);
+  // Load terms from Supabase
+  const loadTerms = useCallback(async () => {
+    if (!isSupabaseAvailable()) {
+      // Fall back to initial terms if Supabase is not configured
+      setTerms(initialTerms);
+      setIsLoaded(true);
+      return;
     }
-  }, [terms, isLoaded]);
 
-  const addTerm = useCallback((termData: Omit<MedicalTerm, 'id' | 'createdBy' | 'updatedBy'>): MedicalTerm => {
-    const auditInfo = userEmail ? createAuditInfo(userEmail) : undefined;
-    const newTerm: MedicalTerm = {
-      ...termData,
-      id: generateId(),
-      createdBy: auditInfo,
-    };
+    setIsLoading(true);
+    setError(null);
 
-    setTerms((prev) => [...prev, newTerm]);
-    return newTerm;
-  }, [userEmail]);
+    const { data, error: fetchError } = await medicalTermsService.getAll();
 
-  const updateTerm = useCallback((id: string, updates: Partial<Omit<MedicalTerm, 'id' | 'createdBy' | 'updatedBy'>>): boolean => {
-    let found = false;
-    const auditInfo = userEmail ? createAuditInfo(userEmail) : undefined;
+    if (fetchError) {
+      console.error('Failed to fetch terms:', fetchError);
+      setError(fetchError.message);
+      // Fall back to initial terms on error
+      setTerms(initialTerms);
+    } else if (data && data.length > 0) {
+      setTerms(data);
+    } else {
+      // No terms in database, use initial terms
+      setTerms(initialTerms);
+    }
 
-    setTerms((prev) =>
-      prev.map((term) => {
-        if (term.id === id) {
-          found = true;
-          return { ...term, ...updates, updatedBy: auditInfo };
-        }
-        return term;
-      })
-    );
+    setIsLoaded(true);
+    setIsLoading(false);
+  }, [isSupabaseAvailable]);
 
-    return found;
-  }, [userEmail]);
+  // Load from Supabase on mount
+  useEffect(() => {
+    loadTerms();
+  }, [loadTerms]);
 
-  const deleteTerm = useCallback((id: string): boolean => {
-    let found = false;
+  const refreshTerms = useCallback(async () => {
+    await loadTerms();
+  }, [loadTerms]);
 
-    setTerms((prev) => {
-      const index = prev.findIndex((term) => term.id === id);
-      if (index !== -1) {
-        found = true;
-        return prev.filter((term) => term.id !== id);
-      }
-      return prev;
-    });
+  const addTerm = useCallback(async (
+    termData: Omit<MedicalTerm, 'id' | 'createdBy' | 'updatedBy'>
+  ): Promise<MedicalTerm | null> => {
+    if (!isSupabaseAvailable()) {
+      setError('Supabase is not configured');
+      return null;
+    }
 
-    return found;
-  }, []);
+    const auditInfo = userEmail && username ? createAuditInfo(userEmail, username) : undefined;
+
+    setIsLoading(true);
+    setError(null);
+
+    const { data, error: createError } = await medicalTermsService.create(termData, auditInfo);
+
+    if (createError) {
+      console.error('Failed to create term:', createError);
+      setError(createError.message);
+      setIsLoading(false);
+      return null;
+    }
+
+    if (data) {
+      setTerms((prev) => [...prev, data]);
+    }
+
+    setIsLoading(false);
+    return data;
+  }, [userEmail, username, isSupabaseAvailable]);
+
+  const updateTerm = useCallback(async (
+    id: string,
+    updates: Partial<Omit<MedicalTerm, 'id' | 'createdBy' | 'updatedBy'>>
+  ): Promise<boolean> => {
+    if (!isSupabaseAvailable()) {
+      setError('Supabase is not configured');
+      return false;
+    }
+
+    const auditInfo = userEmail && username ? createAuditInfo(userEmail, username) : undefined;
+
+    setIsLoading(true);
+    setError(null);
+
+    const { data, error: updateError } = await medicalTermsService.update(id, updates, auditInfo);
+
+    if (updateError) {
+      console.error('Failed to update term:', updateError);
+      setError(updateError.message);
+      setIsLoading(false);
+      return false;
+    }
+
+    if (data) {
+      setTerms((prev) =>
+        prev.map((term) => (term.id === id ? data : term))
+      );
+    }
+
+    setIsLoading(false);
+    return true;
+  }, [userEmail, username, isSupabaseAvailable]);
+
+  const deleteTerm = useCallback(async (id: string): Promise<boolean> => {
+    if (!isSupabaseAvailable()) {
+      setError('Supabase is not configured');
+      return false;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    const { error: deleteError } = await medicalTermsService.delete(id);
+
+    if (deleteError) {
+      console.error('Failed to delete term:', deleteError);
+      setError(deleteError.message);
+      setIsLoading(false);
+      return false;
+    }
+
+    setTerms((prev) => prev.filter((term) => term.id !== id));
+    setIsLoading(false);
+    return true;
+  }, [isSupabaseAvailable]);
 
   const getTermById = useCallback((id: string): MedicalTerm | undefined => {
     return terms.find((term) => term.id === id);
   }, [terms]);
-
-  const resetToDefault = useCallback((): void => {
-    setTerms(initialTerms);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  }, []);
 
   return {
     terms,
@@ -137,7 +175,9 @@ export function useDictionary(options: UseDictionaryOptions = {}): UseDictionary
     updateTerm,
     deleteTerm,
     getTermById,
-    resetToDefault,
+    refreshTerms,
     isLoaded,
+    isLoading,
+    error,
   };
 }
