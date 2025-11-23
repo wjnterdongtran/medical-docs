@@ -1,6 +1,44 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useState, useRef, useEffect } from 'react';
 import { MedicalTerm, AuditInfo, categories, codeSystems } from '@site/src/data/medicalTerms';
 import styles from './styles.module.css';
+
+interface ExpandableDefinitionProps {
+  definition: string;
+  maxHeight?: number;
+}
+
+function ExpandableDefinition({ definition, maxHeight = 72 }: ExpandableDefinitionProps): ReactNode {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [needsExpansion, setNeedsExpansion] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (contentRef.current) {
+      const scrollHeight = contentRef.current.scrollHeight;
+      setNeedsExpansion(scrollHeight > maxHeight);
+    }
+  }, [definition, maxHeight]);
+
+  return (
+    <div className={styles.definitionWrapper}>
+      <div
+        ref={contentRef}
+        className={`${styles.definitionContent} ${!isExpanded && needsExpansion ? styles.collapsed : styles.expanded}`}
+      >
+        {definition}
+      </div>
+      {needsExpansion && (
+        <button
+          className={styles.seeMoreButton}
+          onClick={() => setIsExpanded(!isExpanded)}
+          aria-expanded={isExpanded}
+        >
+          {isExpanded ? 'See less' : 'See more'}
+        </button>
+      )}
+    </div>
+  );
+}
 
 type SortField = 'term' | 'category' | 'codeSystem';
 type SortDirection = 'asc' | 'desc';
@@ -177,19 +215,19 @@ export default function DictionaryTable({
         <table className={`${styles.table} ${isLoading ? styles.tableLoading : ''}`}>
           <thead>
             <tr>
-              <th className={styles.sortable} onClick={() => handleSort('term')}>
+              <th className={`${styles.sortable} ${styles.colTerm}`} onClick={() => handleSort('term')}>
                 Term{getSortIndicator('term')}
               </th>
-              <th>Definition</th>
-              <th className={styles.sortable} onClick={() => handleSort('category')}>
+              <th className={styles.colDefinition}>Definition</th>
+              <th className={`${styles.sortable} ${styles.colCategory}`} onClick={() => handleSort('category')}>
                 Category{getSortIndicator('category')}
               </th>
-              <th className={styles.sortable} onClick={() => handleSort('codeSystem')}>
+              <th className={`${styles.sortable} ${styles.colCodeSystem}`} onClick={() => handleSort('codeSystem')}>
                 Code System{getSortIndicator('codeSystem')}
               </th>
-              <th>Code</th>
-              <th>Modified By</th>
-              {hasActions && <th className={styles.actionsHeader}>Actions</th>}
+              <th className={styles.colCode}>Code</th>
+              <th className={styles.colModifiedBy}>Modified By</th>
+              {hasActions && <th className={`${styles.actionsHeader} ${styles.colActions}`}>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -205,7 +243,9 @@ export default function DictionaryTable({
                   <td className={styles.termCell}>
                     <strong>{term.term}</strong>
                   </td>
-                  <td className={styles.definitionCell}>{term.definition}</td>
+                  <td className={styles.definitionCell}>
+                    <ExpandableDefinition definition={term.definition} />
+                  </td>
                   <td>
                     <span className={`${styles.badge} ${styles[`badge${term.category}`]}`}>
                       {term.category}

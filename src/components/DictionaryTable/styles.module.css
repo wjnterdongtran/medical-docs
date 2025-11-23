@@ -146,6 +146,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.95rem;
+  table-layout: fixed;
 }
 
 .table thead {
@@ -184,16 +185,82 @@
   border-bottom: none;
 }
 
+/* Column Width Classes for Fixed Layout */
+.colTerm {
+  width: 12%;
+}
+
+.colDefinition {
+  width: 30%;
+}
+
+.colCategory {
+  width: 10%;
+}
+
+.colCodeSystem {
+  width: 10%;
+}
+
+.colCode {
+  width: 10%;
+}
+
+.colModifiedBy {
+  width: 15%;
+}
+
+.colActions {
+  width: 8%;
+}
+
 /* Cell Styles */
 .termCell {
-  min-width: 150px;
   color: var(--ifm-color-primary-darker);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .definitionCell {
-  min-width: 250px;
-  max-width: 400px;
   line-height: 1.5;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-line;
+}
+
+/* Expandable Definition */
+.definitionWrapper {
+  position: relative;
+}
+
+.definitionContent {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.definitionContent.collapsed {
+  max-height: 4.5em; /* Approximately 3 lines */
+}
+
+.definitionContent.expanded {
+  max-height: none;
+}
+
+.seeMoreButton {
+  background: none;
+  border: none;
+  color: var(--ifm-color-primary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.25rem 0;
+  margin-top: 0.25rem;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.seeMoreButton:hover {
+  color: var(--ifm-color-primary-dark);
+  text-decoration: underline;
 }
 
 .codeCell code {
@@ -207,8 +274,6 @@
 .auditCell {
   font-size: 0.8rem;
   color: var(--ifm-color-emphasis-700);
-  min-width: 180px;
-  max-width: 250px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -460,10 +525,6 @@
     font-size: 0.85rem;
   }
 
-  .definitionCell {
-    min-width: 200px;
-  }
-
   .searchBox {
     max-width: none;
   }
@@ -477,5 +538,9 @@
     padding: 0.4rem 0.6rem;
     font-size: 0.8rem;
     min-width: 2rem;
+  }
+
+  .definitionContent.collapsed {
+    max-height: 3em; /* 2 lines on mobile */
   }
 }
