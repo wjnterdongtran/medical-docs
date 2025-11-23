@@ -67,7 +67,6 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/wjnterdongtran/medical-docs/tree/main/',
         },
-        blog: false,
         theme: {
           customCss: './src/css/custom.css',
         },
