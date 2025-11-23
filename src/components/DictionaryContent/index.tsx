@@ -174,20 +174,6 @@ function DictionaryContentInner(): ReactNode {
       <section className={styles.content}>
         <UserMenu />
 
-        <div className={styles.demoNotice}>
-          <span className={styles.demoBadge}>Supabase + React Query</span>
-          <span className={styles.demoText}>
-            Server-side filtering & pagination with automatic caching.
-          </span>
-          <button
-            className={styles.resetButton}
-            onClick={() => refetch()}
-            disabled={isLoading || isFetching}
-          >
-            {isLoading || isFetching ? 'Loading...' : 'Refresh'}
-          </button>
-        </div>
-
         {error && <div className={styles.errorNotice}>Error: {error.message}</div>}
 
         {isMutating && <div className={styles.mutatingNotice}>Saving changes...</div>}
@@ -203,6 +189,7 @@ function DictionaryContentInner(): ReactNode {
           onAdd={handleAddClick}
           onEdit={handleEditClick}
           onDelete={handleDeleteClick}
+          onRefresh={() => refetch()}
         />
       </section>
 

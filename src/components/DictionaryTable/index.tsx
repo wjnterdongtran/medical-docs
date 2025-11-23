@@ -84,6 +84,7 @@ interface DictionaryTableProps {
   onEdit?: (term: MedicalTerm) => void;
   onDelete?: (term: MedicalTerm) => void;
   onAdd?: () => void;
+  onRefresh?: () => void;
 }
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
@@ -99,6 +100,7 @@ export default function DictionaryTable({
   onEdit,
   onDelete,
   onAdd,
+  onRefresh,
 }: DictionaryTableProps): ReactNode {
   const { searchQuery, selectedCategory, selectedCodeSystem, sortField, sortDirection } = filters;
   const { page, pageSize, totalCount, totalPages } = pagination;
@@ -172,6 +174,17 @@ export default function DictionaryTable({
               </option>
             ))}
           </select>
+
+          {onRefresh && (
+            <button
+              className={styles.refreshButton}
+              onClick={onRefresh}
+              disabled={isLoading}
+              aria-label="Refresh data"
+            >
+              {isLoading ? 'Loading...' : 'Refresh'}
+            </button>
+          )}
 
           {onAdd && (
             <button className={styles.addButton} onClick={onAdd} aria-label="Add new term">
