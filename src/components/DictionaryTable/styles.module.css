@@ -355,6 +355,28 @@
 }
 
 /* Action Buttons */
+.refreshButton {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: var(--ifm-color-emphasis-200);
+  color: var(--ifm-font-color-base);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.refreshButton:hover:not(:disabled) {
+  background: var(--ifm-color-emphasis-300);
+}
+
+.refreshButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .addButton {
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
